@@ -70,7 +70,7 @@
             height: auto;
             border: 1px solid #ccc;
             border-radius: 4px;
-            background: #eee; /* Shows transparency */
+            background: #eee;
         }
 
         .download-btn {
@@ -136,7 +136,7 @@
                 <input type="range" id="fontSize" min="20" max="100" value="45">
             </div>
 
-            <a id="download-link" class="download-btn">Download Final Image</a>
+            <button id="download-btn" class="download-btn">Download Final Image</button>
         </div>
 
         <div class="preview-section">
@@ -153,18 +153,19 @@
         const fontSizeSlider = document.getElementById('fontSize');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const downloadLink = document.getElementById('download-link');
+        const downloadBtn = document.getElementById('download-btn');
 
         // *** CONFIGURATION ***
-        const frameSrc = './frame.png'; // MUST be the transparent PNG
+        const frameSrc = './frame.png'; 
         let frameImg = new Image();
         let userImg = new Image();
         let isUserImgLoaded = false;
+        
+        // Performance optimization: prevent drawing too fast
+        let isDrawing = false;
 
-        // Default position logic (Percentages of canvas size)
-        // These align with the white box in your "FRAME.jpg"
-        const textBaseXRatio = 0.655; // 65.5% from left
-        const textBaseYRatio = 0.90;  // 90% from top
+        const textBaseXRatio = 0.655; 
+        const textBaseYRatio = 0.90;
 
         frameImg.crossOrigin = "anonymous";
         frameImg.src = frameSrc;
@@ -172,12 +173,12 @@
         frameImg.onload = function() {
             canvas.width = frameImg.width;
             canvas.height = frameImg.height;
-            draw();
+            requestDraw();
         };
 
-        // Event Listeners for Real-time updates
+        // Efficient Event Listeners
         [line1Input, line2Input, posXSlider, posYSlider, fontSizeSlider].forEach(el => {
-            el.addEventListener('input', draw);
+            el.addEventListener('input', requestDraw);
         });
 
         fileInput.addEventListener('change', function(e) {
@@ -188,27 +189,35 @@
                 userImg = new Image();
                 userImg.onload = function() {
                     isUserImgLoaded = true;
-                    draw();
+                    requestDraw();
                 }
                 userImg.src = event.target.result;
             }
             reader.readAsDataURL(file);
         });
 
+        // Use requestAnimationFrame for smoother performance
+        function requestDraw() {
+            if (!isDrawing) {
+                requestAnimationFrame(() => {
+                    draw();
+                    isDrawing = false;
+                });
+                isDrawing = true;
+            }
+        }
+
         function draw() {
             // 1. Clear Canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 2. Draw User Image (Scaled & Centered)
+            // 2. Draw User Image
             if (isUserImgLoaded) {
-                // Calculate "Cover" fit
                 const scale = Math.max(canvas.width / userImg.width, canvas.height / userImg.height);
                 const x = (canvas.width / 2) - (userImg.width / 2) * scale;
                 const y = (canvas.height / 2) - (userImg.height / 2) * scale;
-                
                 ctx.drawImage(userImg, x, y, userImg.width * scale, userImg.height * scale);
             } else {
-                // Placeholder grey background if no image
                 ctx.fillStyle = "#e0e0e0";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#666";
@@ -225,26 +234,29 @@
             const offsetX = parseInt(posXSlider.value);
             const offsetY = parseInt(posYSlider.value);
 
-            // Calculate base position relative to frame size
             const baseX = canvas.width * textBaseXRatio;
             const baseY = canvas.height * textBaseYRatio;
 
             ctx.textAlign = "center"; 
-            ctx.fillStyle = "black"; // Text Color
+            ctx.fillStyle = "black"; 
 
-            // Line 1 (Name) - Bold
             ctx.font = `bold ${fontSize}px 'Segoe UI', sans-serif`;
             ctx.fillText(line1Input.value, baseX + offsetX, baseY + offsetY);
 
-            // Line 2 (Location) - Regular, slightly smaller
             ctx.font = `${fontSize * 0.7}px 'Segoe UI', sans-serif`;
-            // Position line 2 below line 1 (spacing based on font size)
             ctx.fillText(line2Input.value, baseX + offsetX, baseY + offsetY + (fontSize * 1.1));
 
-            // 5. Update Download Link
-            downloadLink.href = canvas.toDataURL('image/png');
-            downloadLink.download = `Award_${line1Input.value.replace(/\s+/g, '_')}.png`;
+            // REMOVED: The heavy download generation code is gone from here!
         }
+
+        // New Download Logic: Only happens when you CLICK the button
+        downloadBtn.addEventListener('click', function() {
+            // Create a temporary link to trigger download
+            const link = document.createElement('a');
+            link.download = `Award_${line1Input.value.replace(/\s+/g, '_')}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
     </script>
 </body>
 </html>
